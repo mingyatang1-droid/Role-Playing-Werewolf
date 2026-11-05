@@ -1,0 +1,15 @@
+{
+  "name": "role-playing-werewolf-client",
+  "version": "0.1.0",
+  "private": true,
+  "description": "WeChat Mini Game client for Role-Playing Werewolf",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "watch": "tsc -p tsconfig.json --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "node scripts/clean.mjs"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

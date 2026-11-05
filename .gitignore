@@ -53,3 +53,14 @@ dkms.conf
 
 # debug information files
 *.dwo
+
+# Node.js / TypeScript
+node_modules/
+.npm-cache/
+dist/
+coverage/
+.env
+*.log
+
+# Editors
+.idea/
