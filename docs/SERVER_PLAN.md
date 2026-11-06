@@ -61,6 +61,7 @@
 - ORM/查询层可自选变更敏感度低且 SQL 可控的方案，关键事务使用显式 SQL。
 - DS 和 ASR 均通过 Provider Adapter 接入。
 - 托管数据库、Redis 和对象存储，避免单人维护复杂基础设施。
+- 本地无 Docker 时使用 SQLite 适配器；推荐通过 `server/compose.yaml` 启动 PostgreSQL，正式部署必须使用 PostgreSQL。
 
 ### 2.2 建议目录
 

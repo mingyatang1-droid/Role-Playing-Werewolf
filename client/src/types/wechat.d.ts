@@ -8,6 +8,16 @@ interface WechatSystemInfo {
   windowWidth: number;
   windowHeight: number;
   pixelRatio: number;
+  statusBarHeight?: number;
+}
+
+interface WechatMenuButtonRect {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+  width: number;
+  height: number;
 }
 
 interface WechatRequestOptions<T = unknown> {
@@ -18,6 +28,32 @@ interface WechatRequestOptions<T = unknown> {
   timeout?: number;
   success?: (response: { statusCode: number; data: T }) => void;
   fail?: (error: { errMsg: string }) => void;
+}
+
+interface WechatLoginOptions {
+  timeout?: number;
+  success?: (result: { code: string }) => void;
+  fail?: (error: { errMsg: string }) => void;
+}
+
+interface WechatShowModalOptions {
+  title?: string;
+  content?: string;
+  editable?: boolean;
+  placeholderText?: string;
+  confirmText?: string;
+  cancelText?: string;
+  success?: (result: { confirm: boolean; content?: string }) => void;
+  fail?: (error: { errMsg: string }) => void;
+}
+
+interface WechatTouch {
+  clientX: number;
+  clientY: number;
+}
+
+interface WechatTouchEndEvent {
+  changedTouches: WechatTouch[];
 }
 
 interface WechatSocketTask {
@@ -32,10 +68,15 @@ interface WechatSocketTask {
 interface WechatApi {
   createCanvas(): WechatCanvas;
   getSystemInfoSync(): WechatSystemInfo;
+  getMenuButtonBoundingClientRect?(): WechatMenuButtonRect;
+  login(options: WechatLoginOptions): void;
+  showModal(options: WechatShowModalOptions): void;
+  onTouchEnd(callback: (event: WechatTouchEndEvent) => void): void;
   request<T = unknown>(options: WechatRequestOptions<T>): void;
   connectSocket(options: { url: string; protocols?: string[] }): WechatSocketTask;
   getStorageSync(key: string): unknown;
   setStorageSync(key: string, value: unknown): void;
+  removeStorageSync(key: string): void;
 }
 
 declare const wx: WechatApi;

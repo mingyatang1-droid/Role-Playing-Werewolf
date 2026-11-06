@@ -1,17 +1,22 @@
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../src/app.js";
 
 describe("GET /v1/health", () => {
   let app: FastifyInstance;
 
+  beforeAll(async () => {
+    process.env.DATABASE_DRIVER = "sqlite";
+    process.env.DATABASE_PATH = ":memory:";
+    process.env.WECHAT_AUTH_MODE = "mock";
+    app = await buildApp({ logger: false });
+  });
+
   afterAll(async () => {
     await app.close();
   });
 
   it("returns the contract bootstrap response", async () => {
-    app = await buildApp({ logger: false });
-
     const response = await app.inject({
       method: "GET",
       url: "/v1/health",

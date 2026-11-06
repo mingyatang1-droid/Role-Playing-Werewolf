@@ -108,9 +108,17 @@
   "message": "success",
   "request_id": "req_123",
   "data": {
-    "user_id": "usr_123",
     "access_token": "signed-token",
-    "expires_at": "2026-11-05T14:00:00Z"
+    "token_type": "Bearer",
+    "expires_at": "2026-12-05T14:00:00Z",
+    "is_new_user": true,
+    "user": {
+      "id": "62a89b51-6ecc-49d2-9980-916b5b9da4e2",
+      "public_id": "W-12AB34CD",
+      "nickname": "玩家34CD",
+      "avatar_url": null,
+      "created_at": "2026-11-05T14:00:00Z"
+    }
   }
 }
 ```
@@ -118,8 +126,41 @@
 - HTTP 使用 `Authorization: Bearer <access_token>`。
 - WebSocket 握手通过 `token` 查询参数或首帧鉴权提交会话；Token 不得出现在日志中。
 - 会话过期返回 `AUTH_EXPIRED`，客户端重新登录；重新登录不能改变当前房间席位。
+- `wechat_openid`、`unionid` 和 `session_key` 只保存在服务端，不能返回客户端。
+- `wx.login` 不提供昵称、头像或微信号；昵称由用户在登录后的设置流程中主动填写。
 
-### 3.3 统一响应
+### 3.3 当前用户和昵称
+
+`GET /v1/me`
+
+```json
+{
+  "code": "OK",
+  "message": "success",
+  "request_id": "req_me_1",
+  "data": {
+    "user": {
+      "id": "62a89b51-6ecc-49d2-9980-916b5b9da4e2",
+      "public_id": "W-12AB34CD",
+      "nickname": "玩家34CD",
+      "avatar_url": null,
+      "created_at": "2026-11-05T14:00:00Z"
+    }
+  }
+}
+```
+
+`PATCH /v1/me/profile`
+
+```json
+{
+  "nickname": "主公"
+}
+```
+
+昵称长度为 1～32 个字符；不提供修改“微信号”的字段，因为产品不获取该信息。
+
+### 3.4 统一响应
 
 ```json
 {
@@ -218,7 +259,10 @@ P1 角色不在当前契约中下发。
 ```
 
 - `mode`：`SOLO` 或 `FRIENDS`。
-- 返回 `room_id`、`room_version`、房主席位和房间快照。
+- `human_seats + ai_seats` 必须等于 `total_seats`。
+- 角色数量之和必须等于 `total_seats`。
+- 当前版本仅接受 `SOLO`，且必须为 1 名真人、其余 AI。
+- 成功返回 `201`，包含 `id`、`room_code`、`status`、`config_version` 和完整角色配置。
 - 服务端必须重新校验人数与角色牌堆。
 
 ### 5.2 读取和修改
@@ -227,6 +271,8 @@ P1 角色不在当前契约中下发。
 - `PATCH /v1/rooms/{room_id}/config`，带 `expected_version`。
 - 配置冲突返回 `ROOM_VERSION_CONFLICT` 和最新版本号。
 - 修改角色配置后客户端应使用响应快照，不自行猜测状态。
+
+当前 P0 已实现创建和读取房间；`PATCH` 将在加入未开局房间编辑/等待房能力时实现。
 
 ### 5.3 加入、准备和开始
 
