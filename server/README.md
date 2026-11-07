@@ -11,8 +11,15 @@
 - `PATCH /v1/me/profile`：设置昵称。
 - `POST /v1/rooms`：创建并保存单人房间配置。
 - `GET /v1/rooms/:room_id`：读取当前用户拥有的房间。
+- `PATCH /v1/rooms/:room_id/config`：按配置版本修改未开始房间。
+- `POST /v1/rooms/:room_id/start`：分配角色并开始规则对局。
+- `GET /v1/games/:game_id/snapshot`：读取权限裁剪后的对局快照。
+- `POST /v1/games/:game_id/actions`：提交夜晚行动、猎人开枪或投票。
+- `POST /v1/games/:game_id/tick`：推进已经到期的真人发言计时。
 - 本地 SQLite 持久化用户、微信身份标识和会话哈希。
 - SQLite/PostgreSQL 持久化房间、席位和角色配置。
+- SQLite/PostgreSQL 持久化可回放的游戏状态 JSON 和状态版本。
+- 规则引擎支持白天发言顺序、60 秒截止时间、文本发言和超时跳过。
 - 统一的基础目录：配置、路由、实时连接、测试。
 
 当前尚未接入 Redis、房间、规则引擎、DS API 或 ASR。用户及相关会话数据已落盘。
@@ -26,6 +33,8 @@ cd server
 npm install
 npm run db:up
 Copy-Item .env.example .env
+# 然后将 .env 中的 DATABASE_DRIVER 改为 postgres
+# 并取消 DATABASE_URL 注释
 npm run dev
 ```
 
@@ -35,7 +44,7 @@ npm run dev
 
 `npm run db:up` 使用了 `--wait`，会在 PostgreSQL 健康检查通过后才返回。
 
-默认连接配置：
+Docker 模式连接配置：
 
 ```text
 DATABASE_DRIVER=postgres
@@ -86,8 +95,8 @@ WECHAT_APP_SECRET=你的 AppSecret
 
 `WECHAT_APP_SECRET` 只能放在服务端环境变量或密钥管理服务中，不能提交到 Git。
 
-默认配置使用 PostgreSQL。无 Docker 时可将驱动切回 SQLite，数据写入
-`server/data/werewolf.db`。两种实现共享异步仓储接口，登录路由无需修改。
+无 Docker 时默认使用 SQLite，数据写入 `server/data/werewolf.db`。两种实现
+共享异步仓储接口，业务路由无需修改。
 
 ```powershell
 npm run typecheck

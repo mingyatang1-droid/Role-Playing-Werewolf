@@ -63,6 +63,53 @@ describe("room configuration", () => {
       witch: 1,
       hunter: 1,
     });
+
+    const updateResponse = await app.inject({
+      method: "PATCH",
+      url: `/v1/rooms/${room.id}/config`,
+      headers: { authorization: `Bearer ${accessToken}` },
+      payload: {
+        expected_version: room.config_version,
+        mode: "SOLO",
+        total_seats: 8,
+        human_seats: 1,
+        ai_seats: 7,
+        role_config: {
+          werewolf: 2,
+          villager: 4,
+          seer: 1,
+          witch: 1,
+          hunter: 0,
+        },
+      },
+    });
+    const updatedRoom = updateResponse.json().data;
+
+    expect(updateResponse.statusCode).toBe(200);
+    expect(updatedRoom.total_seats).toBe(8);
+    expect(updatedRoom.config_version).toBe(room.config_version + 1);
+
+    const staleUpdateResponse = await app.inject({
+      method: "PATCH",
+      url: `/v1/rooms/${room.id}/config`,
+      headers: { authorization: `Bearer ${accessToken}` },
+      payload: {
+        expected_version: room.config_version,
+        mode: "SOLO",
+        total_seats: 9,
+        human_seats: 1,
+        ai_seats: 8,
+        role_config: {
+          werewolf: 3,
+          villager: 3,
+          seer: 1,
+          witch: 1,
+          hunter: 1,
+        },
+      },
+    });
+    expect(staleUpdateResponse.statusCode).toBe(409);
+    expect(staleUpdateResponse.json().code).toBe("ROOM_VERSION_CONFLICT");
   });
 
   it("rejects a role deck with the wrong total", async () => {

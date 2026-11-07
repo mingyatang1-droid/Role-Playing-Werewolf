@@ -17,6 +17,8 @@ import { realtimeRoutes } from "./realtime/routes.js";
 import { healthRoutes } from "./routes/health.js";
 import { createRoomRoutes } from "./rooms/routes.js";
 import { RoomService } from "./rooms/room-service.js";
+import { GameService } from "./game/game-service.js";
+import { createGameRoutes } from "./game/routes.js";
 
 export interface BuildAppOptions {
   logger?: boolean;
@@ -33,6 +35,7 @@ export async function buildApp(
   let persistence: PersistenceContext | null = null;
   let authService = options.authService;
   let roomService: RoomService | null = null;
+  let gameService: GameService | null = null;
   if (!authService) {
     const environment = getServerEnvironment();
     persistence = await createPersistence(environment);
@@ -50,6 +53,11 @@ export async function buildApp(
       wechat,
     );
     roomService = new RoomService(authService, persistence.rooms);
+    gameService = new GameService(
+      authService,
+      persistence.rooms,
+      persistence.games,
+    );
   }
 
   if (persistence) {
@@ -98,6 +106,9 @@ export async function buildApp(
   await app.register(createAuthRoutes(authService));
   if (roomService) {
     await app.register(createRoomRoutes(roomService));
+  }
+  if (gameService) {
+    await app.register(createGameRoutes(gameService));
   }
   await app.register(realtimeRoutes);
 

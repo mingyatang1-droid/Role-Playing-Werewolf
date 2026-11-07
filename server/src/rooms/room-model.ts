@@ -37,6 +37,12 @@ export interface RoomRepository {
     roomId: string,
     ownerUserId: string,
   ): Promise<RoomRecord | null>;
+  updateConfig(
+    roomId: string,
+    ownerUserId: string,
+    input: CreateRoomInput,
+    expectedVersion: number,
+  ): Promise<RoomRecord | null>;
 }
 
 export function roleTotal(roleConfig: RoleConfig): number {

@@ -139,4 +139,74 @@ export class SqliteRoomRepository implements RoomRepository {
 
     return row ? mapRoom(row) : null;
   }
+
+  async updateConfig(
+    roomId: string,
+    ownerUserId: string,
+    input: CreateRoomInput,
+    expectedVersion: number,
+  ): Promise<RoomRecord | null> {
+    const now = new Date().toISOString();
+    this.database.connection.exec("BEGIN IMMEDIATE;");
+
+    try {
+      const result = this.database.connection
+        .prepare(
+          `UPDATE rooms SET
+            mode = ?, total_seats = ?, human_seats = ?, ai_seats = ?,
+            werewolf_count = ?, villager_count = ?, seer_count = ?,
+            witch_count = ?, hunter_count = ?, config_version = config_version + 1,
+            updated_at = ?
+          WHERE id = ? AND owner_user_id = ? AND status = 'CONFIGURING'
+            AND config_version = ?`,
+        )
+        .run(
+          input.mode,
+          input.totalSeats,
+          input.humanSeats,
+          input.aiSeats,
+          input.roleConfig.werewolf,
+          input.roleConfig.villager,
+          input.roleConfig.seer,
+          input.roleConfig.witch,
+          input.roleConfig.hunter,
+          now,
+          roomId,
+          ownerUserId,
+          expectedVersion,
+        );
+
+      if (result.changes === 0) {
+        this.database.connection.exec("ROLLBACK;");
+        return null;
+      }
+
+      this.database.connection
+        .prepare("DELETE FROM room_seats WHERE room_id = ?")
+        .run(roomId);
+
+      const insertSeat = this.database.connection.prepare(
+        `INSERT INTO room_seats (
+          id, room_id, seat_no, occupant_type, user_id, ready, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      );
+      for (let seatNo = 1; seatNo <= input.totalSeats; seatNo += 1) {
+        insertSeat.run(
+          randomUUID(),
+          roomId,
+          seatNo,
+          seatNo === 1 ? "HUMAN" : "AI",
+          seatNo === 1 ? ownerUserId : null,
+          seatNo === 1 ? 1 : 0,
+          now,
+        );
+      }
+
+      this.database.connection.exec("COMMIT;");
+      return this.findByIdForOwner(roomId, ownerUserId);
+    } catch (error) {
+      this.database.connection.exec("ROLLBACK;");
+      throw error;
+    }
+  }
 }

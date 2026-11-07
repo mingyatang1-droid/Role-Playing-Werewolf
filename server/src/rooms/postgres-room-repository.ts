@@ -140,4 +140,74 @@ export class PostgresRoomRepository implements RoomRepository {
     );
     return result.rows[0] ? mapRoom(result.rows[0]) : null;
   }
+
+  async updateConfig(
+    roomId: string,
+    ownerUserId: string,
+    input: CreateRoomInput,
+    expectedVersion: number,
+  ): Promise<RoomRecord | null> {
+    const client = await this.pool.connect();
+    const now = new Date().toISOString();
+
+    try {
+      await client.query("BEGIN");
+      const updated = await client.query<RoomRow>(
+        `UPDATE rooms SET
+          mode = $1, total_seats = $2, human_seats = $3, ai_seats = $4,
+          werewolf_count = $5, villager_count = $6, seer_count = $7,
+          witch_count = $8, hunter_count = $9, config_version = config_version + 1,
+          updated_at = $10
+        WHERE id = $11 AND owner_user_id = $12 AND status = 'CONFIGURING'
+          AND config_version = $13
+        RETURNING *`,
+        [
+          input.mode,
+          input.totalSeats,
+          input.humanSeats,
+          input.aiSeats,
+          input.roleConfig.werewolf,
+          input.roleConfig.villager,
+          input.roleConfig.seer,
+          input.roleConfig.witch,
+          input.roleConfig.hunter,
+          now,
+          roomId,
+          ownerUserId,
+          expectedVersion,
+        ],
+      );
+
+      if (!updated.rows[0]) {
+        await client.query("ROLLBACK");
+        return null;
+      }
+
+      await client.query("DELETE FROM room_seats WHERE room_id = $1", [roomId]);
+      for (let seatNo = 1; seatNo <= input.totalSeats; seatNo += 1) {
+        await client.query(
+          `INSERT INTO room_seats (
+            id, room_id, seat_no, occupant_type, user_id, ready, created_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [
+            randomUUID(),
+            roomId,
+            seatNo,
+            seatNo === 1 ? "HUMAN" : "AI",
+            seatNo === 1 ? ownerUserId : null,
+            seatNo === 1 ? 1 : 0,
+            now,
+          ],
+        );
+      }
+
+      await client.query("COMMIT");
+      return mapRoom(updated.rows[0]);
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
 }

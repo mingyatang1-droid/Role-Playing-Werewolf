@@ -271,14 +271,36 @@ P1 角色不在当前契约中下发。
 - `PATCH /v1/rooms/{room_id}/config`，带 `expected_version`。
 - 配置冲突返回 `ROOM_VERSION_CONFLICT` 和最新版本号。
 - 修改角色配置后客户端应使用响应快照，不自行猜测状态。
+- 仅 `CONFIGURING` 状态的房间允许修改；版本不一致返回 `409`。
 
-当前 P0 已实现创建和读取房间；`PATCH` 将在加入未开局房间编辑/等待房能力时实现。
+修改请求：
+
+```json
+{
+  "expected_version": 1,
+  "mode": "SOLO",
+  "total_seats": 9,
+  "human_seats": 1,
+  "ai_seats": 8,
+  "role_config": {
+    "werewolf": 3,
+    "villager": 3,
+    "seer": 1,
+    "witch": 1,
+    "hunter": 1
+  }
+}
+```
+
+成功后 `config_version` 加 1，并重建该房间的席位。
 
 ### 5.3 加入、准备和开始
 
 - `POST /v1/rooms/join`
 - `POST /v1/rooms/{room_id}/ready`
 - `POST /v1/rooms/{room_id}/start`
+
+开始游戏成功返回 `201` 和第一份 `GameSnapshot`。重复调用同一房间的开始接口时，返回已经存在的对局，不重复分配角色。
 
 开始响应：
 
@@ -366,65 +388,65 @@ P1 角色不在当前契约中下发。
 ```json
 {
   "game_id": "game_123",
-  "contract_version": "1.0",
-  "game_engine_version": "classic_9_tubian_v1",
-  "room_version": 5,
-  "game_version": 18,
-  "last_event_sequence": 87,
-  "phase": "DAY_SPEECH",
-  "round_no": 2,
-  "self": {
-    "seat_no": 3,
-    "background_character": {
-      "display_name": "张飞",
-      "speech_reference_name": "张飞"
-    },
-    "game_role": "WEREWOLF",
-    "camp": "WEREWOLF",
-    "alive": true
-  },
+  "state_version": 3,
+  "phase": "DAY_VOTE",
+  "round": 1,
+  "current_speaker_seat": null,
+  "speech_order": [1, 2, 3],
+  "turn_deadline_at": null,
+  "self_seat": 1,
+  "self_role": "VILLAGER",
+  "self_alive": true,
+  "winner": null,
   "players": [
     {
       "seat_no": 1,
-      "display_name": "玩家一",
-      "background_character_name": "诸葛亮",
-      "speaker_reference_name": "诸葛亮",
-      "occupant_type": "HUMAN",
-      "alive": true,
-      "speech_state": "IDLE",
-      "vote_state": "NOT_VOTED"
+      "nickname": "玩家一",
+      "is_ai": false,
+      "alive": true
     }
   ],
-  "public_timeline": [],
-  "private_state": {
-    "seer_result_ids": [],
-    "witch_resources": null,
-    "hunter_available": false
-  },
+  "events": [
+    {
+      "id": "event-2",
+      "sequence": 2,
+      "round": 1,
+      "type": "DAY_BREAK",
+      "message": "第 1 天，昨夜无人出局",
+      "visibility": "PUBLIC"
+    }
+  ],
   "legal_action": {
-    "type": "SPEAK",
-    "targets": []
+    "type": "VOTE",
+    "target_seats": [2, 3, 4, 5, 6, 7, 8, 9]
   },
-  "deadline_at": "2026-11-05T14:00:00Z"
+  "private_info": {
+    "werewolf_teammates": [],
+    "seer_checks": [],
+    "witch": null,
+    "pending_hunter_shot": false
+  }
 }
 ```
 
+阶段 2 暂未加入背景角色、逐人发言和倒计时字段；这些字段会在后续阶段扩展，不能依据不存在的字段实现客户端逻辑。
+
 ### 7.2 字段权限
 
-- `self.game_role` 仅在当前玩家视图出现。
-- `players[].game_role` 不得出现在未结束的普通玩家快照中。
-- 预言家查验通过 `private_state` 只返回自己的结果。
-- 狼人队友通过 `private_state.werewolf_teammates` 返回，仅限狼人。
-- `public_timeline` 只能包含已审核并广播的事件。
+- `self_role` 仅在当前玩家视图出现。
+- `players[].role` 不得出现在未结束的普通玩家快照中。
+- 预言家查验通过 `private_info.seer_checks` 只返回自己的结果。
+- 狼人队友通过 `private_info.werewolf_teammates` 返回，仅限狼人。
+- `events` 只能包含公开事件和当前玩家自己的私有事件。
 - 复盘接口只有在 `GAME_OVER` 后可以返回全员游戏角色。
 
 ### 7.3 快照完整度
 
 客户端收到快照后：
 
-1. 用 `last_event_sequence` 作为后续事件起点。
-2. 清除旧对局状态，不合并已失效的本地阶段。
-3. 若服务端返回版本高于客户端支持版本，提示更新客户端。
+1. 用 `state_version` 与服务器校验行动版本。
+2. 用 `events[].sequence` 去重和检查事件顺序。
+3. 清除旧对局状态，不合并已失效的本地阶段。
 4. 保存未提交输入草稿，但身份和阶段以新快照为准。
 
 ---
@@ -437,16 +459,43 @@ P1 角色不在当前契约中下发。
 
 ```json
 {
-  "idempotency_key": "seat3-night2-kill",
-  "expected_game_version": 18,
-  "action_type": "WEREWOLF_KILL",
+  "expected_version": 3,
+  "action_type": "WOLF_KILL",
   "target_seat": 6
 }
 ```
 
 - `target_seat` 只用于机器定位目标，不作为 AI 公共文本。
 - 服务端校验用户、席位、存活、阶段、角色、目标和版本。
-- 重复幂等键返回第一次结果，不重复改变状态。
+- 当前阶段 2 使用 `state_version` 乐观锁；重复请求通过版本拒绝，不重复改变状态。
+
+阶段 2 支持的行动：
+
+- `WOLF_KILL`
+- `SEER_CHECK`
+- `WITCH_ACTION`
+- `HUNTER_SHOOT`
+- `SPEAK`
+- `SKIP_SPEECH`
+- `VOTE`
+
+白天发言提交：
+
+```json
+{
+  "expected_version": 4,
+  "action_type": "SPEAK",
+  "text": "我认为昨晚的信息还不够，先听后续发言。"
+}
+```
+
+真人发言截止后，客户端调用：
+
+```text
+POST /v1/games/{game_id}/tick
+```
+
+服务端只在截止时间已经到达时自动跳过，并返回新的快照和 `state_version`。
 
 ### 8.2 提交文字发言
 

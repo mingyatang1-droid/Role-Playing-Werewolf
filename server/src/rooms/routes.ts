@@ -11,6 +11,10 @@ interface CreateRoomBody {
   role_config: RoleConfig;
 }
 
+interface UpdateRoomConfigBody extends CreateRoomBody {
+  expected_version: number;
+}
+
 interface RoomParams {
   room_id: string;
 }
@@ -123,6 +127,68 @@ export function createRoomRoutes(roomService: RoomService): FastifyPluginAsync {
         const room = await roomService.getOwnedRoom(
           token,
           request.params.room_id,
+        );
+        success(reply, request.id, toRoomResponse(room));
+      },
+    );
+
+    app.patch<{ Params: RoomParams; Body: UpdateRoomConfigBody }>(
+      "/v1/rooms/:room_id/config",
+      {
+        schema: {
+          body: {
+            type: "object",
+            additionalProperties: false,
+            required: [
+              "expected_version",
+              "mode",
+              "total_seats",
+              "human_seats",
+              "ai_seats",
+              "role_config",
+            ],
+            properties: {
+              expected_version: { type: "integer", minimum: 1 },
+              mode: { type: "string", enum: ["SOLO", "FRIENDS"] },
+              total_seats: { type: "integer", minimum: 6, maximum: 12 },
+              human_seats: { type: "integer", minimum: 1, maximum: 12 },
+              ai_seats: { type: "integer", minimum: 0, maximum: 11 },
+              role_config: {
+                type: "object",
+                additionalProperties: false,
+                required: [
+                  "werewolf",
+                  "villager",
+                  "seer",
+                  "witch",
+                  "hunter",
+                ],
+                properties: {
+                  werewolf: { type: "integer", minimum: 0, maximum: 12 },
+                  villager: { type: "integer", minimum: 0, maximum: 12 },
+                  seer: { type: "integer", minimum: 0, maximum: 12 },
+                  witch: { type: "integer", minimum: 0, maximum: 12 },
+                  hunter: { type: "integer", minimum: 0, maximum: 12 },
+                },
+              },
+            },
+          },
+        },
+      },
+      async (request, reply) => {
+        const token = readBearerToken(request.headers.authorization);
+        const body = request.body;
+        const room = await roomService.updateRoomConfig(
+          token,
+          request.params.room_id,
+          {
+            mode: body.mode,
+            totalSeats: body.total_seats,
+            humanSeats: body.human_seats,
+            aiSeats: body.ai_seats,
+            roleConfig: body.role_config,
+          },
+          body.expected_version,
         );
         success(reply, request.id, toRoomResponse(room));
       },

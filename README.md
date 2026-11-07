@@ -39,20 +39,21 @@ npm run build
 cd server
 Copy-Item .env.example .env
 npm install
-npm run db:up
 npm run dev
 ```
 
 默认服务地址为 `http://127.0.0.1:3000`，健康检查为 `GET /v1/health`。
-本地默认使用 Mock 微信登录。推荐通过 Docker 启动 PostgreSQL；没有 Docker 时，
-将 `.env` 中的 `DATABASE_DRIVER` 改为 `sqlite`。配置真实 AppID 和 AppSecret 后，
+本地默认使用 SQLite 和 Mock 微信登录。配置真实 AppID 和 AppSecret 后，
 将 `WECHAT_AUTH_MODE` 改为 `live`。
 
-当前已支持微信登录、首页、6～12 人单人房配置、角色数量校验和房间持久化。
+当前已支持微信登录、首页、6～12 人单人房配置、角色数量校验、房间持久化、
+未开始房间恢复和配置修改，以及基础狼人杀规则引擎、逐人发言、游戏桌面骨架
+和分页复盘。
 详细完成项、验证结果和下一步见
 [当前实现状态](docs/IMPLEMENTATION_STATUS.md)。
 
-Docker PostgreSQL 第一次启动：
+需要 PostgreSQL 时，先安装 Docker，再将 `.env` 改为
+`DATABASE_DRIVER=postgres` 并取消 `DATABASE_URL` 注释，然后执行：
 
 ```powershell
 cd server
